@@ -1,4 +1,3 @@
-import "dotenv/config";
 import blessed from "blessed";
 import chalk from "chalk";
 import figlet from "figlet";
@@ -13,7 +12,8 @@ const USDC_ADDRESS = "0xdB07b0b4E88D9D5A79A08E91fEE20Bb41f9989a2";
 const PRIOR_ADDRESS = "0xeFC91C5a51E8533282486FA2601dFfe0a0b16EDb";
 const ROUTER_ADDRESS = "0x8957e1988905311EE249e679a29fc9deCEd4D910";
 const FAUCET_ADDRESS = "0xa206dC56F1A56a03aEa0fCBB7c7A62b5bE1Fe419";
-const API_URL = "https://prior-protocol-testnet-priorprotocol.replit.app/api/transactions";
+const FAUCET_API_URL = "https://priortestnet.xyz/api/faucet/claim";
+const API_URL = "https://priortestnet.xyz/api/swap";
 
 const SWAP_PRIOR_TO_USDC_DATA = "0x8ec7baf1000000000000000000000000000000000000000000000000016345785d8a0000";
 const SWAP_USDC_TO_PRIOR_DATA = "0xea0e43580000000000000000000000000000000000000000000000000000000000030d40";
@@ -259,17 +259,13 @@ async function getNextNonce(provider, walletAddress) {
   }
 }
 
-async function reportTransactionToApi(walletAddress, txHash, fromToken, toToken, fromAmount, toAmount, blockNumber, accountIndex, proxyUrl, swapCount) {
+async function reportTransactionToApi(walletAddress, txHash, fromToken, toToken, fromAmount, accountIndex, proxyUrl, swapCount) {
   const payload = {
-    userId: walletAddress,
-    type: "swap",
-    txHash: txHash,
-    fromToken: fromToken,
-    toToken: toToken,
-    fromAmount: fromAmount,
-    toAmount: toAmount,
-    status: "completed",
-    blockNumber: blockNumber
+    address: walletAddress,
+    amount: fromAmount,
+    tokenFrom: fromToken,
+    tokenTo: toToken,
+    txHash: txHash
   };
 
   try {
@@ -279,7 +275,6 @@ async function reportTransactionToApi(walletAddress, txHash, fromToken, toToken,
     addLog(`Account ${accountIndex + 1} - Swap ${swapCount}: Failed to report transaction - ${error.message}`, "error");
   }
 }
-
 async function checkAndApproveToken(wallet, provider, tokenAddress, amount, tokenName, accountIndex, swapCount) {
   if (shouldStop) {
     addLog("Approval stopped due to stop request.", "info");
@@ -346,8 +341,6 @@ async function executeSwap(wallet, provider, swapCount, fromToken, toToken, swap
       fromTokenName,
       toTokenName,
       fromAmountStr,
-      toAmountStr,
-      receipt.blockNumber,
       accountIndex,
       proxyUrl,
       swapCount
@@ -617,35 +610,10 @@ async function runDailySwap() {
 async function reportFaucetClaim(walletAddress, txHash, amount, blockNumber, accountIndex, proxyUrl) {
   try {
     const claimPayload = {
-      address: walletAddress,
-      txHash: txHash,
-      amount: amount,
-      blockNumber: blockNumber
+      address: walletAddress
     };
-    const claimResponse = await makeApiRequest(
-      "post",
-      "https://prior-protocol-testnet-priorprotocol.replit.app/api/claim",
-      claimPayload,
-      proxyUrl
-    );
-    const userId = claimResponse.user.id;
-    const transactionPayload = {
-      userId: userId,
-      type: "faucet_claim",
-      fromToken: null,
-      toToken: "PRIOR",
-      fromAmount: null,
-      toAmount: amount,
-      txHash: txHash,
-      status: "completed",
-      blockNumber: blockNumber
-    };
-    const transactionResponse = await makeApiRequest(
-      "post",
-      "https://prior-protocol-testnet-priorprotocol.replit.app/api/transactions",
-      transactionPayload,
-      proxyUrl
-    );
+    
+    await makeApiRequest("post", FAUCET_API_URL, claimPayload, proxyUrl);
     addLog(`Account ${accountIndex + 1}: Claim Faucet Reported Successfully`, "success");
   } catch (error) {
     addLog(`Account ${accountIndex + 1}: Failed to report faucet claim - ${error.message}`, "error");
